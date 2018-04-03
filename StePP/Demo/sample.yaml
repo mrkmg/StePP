@@ -1,0 +1,16 @@
+name: Sample Test
+version: 1
+
+actions:
+  action1:
+    executable: ./echo-sleep
+    arguments:
+      - |
+        Action
+        Action
+      - 1
+
+steps:
+  one:
+    actions:
+      - action1
