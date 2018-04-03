@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using StePP.Config;
@@ -10,23 +9,27 @@ namespace StePP.Runner
 {
     public class Manager
     {
+        private readonly OutputLogger _output;
+        private readonly OutputLogger _managerOutput;
         private readonly Dictionary<string, Step> _steps;
         private readonly Dictionary<string, Action> _actions;
         private readonly List<string> _finishSteps = new List<string>();
         private readonly Dictionary<string, StepRunner> _stepRunners = new Dictionary<string, StepRunner>();
         private readonly Dictionary<string, Task<bool>> _runningTasks = new Dictionary<string, Task<bool>>();
 
-        public Manager(Dictionary<string, Step> steps, Dictionary<string, Action> actions)
+        public Manager(Dictionary<string, Step> steps, Dictionary<string, Action> actions, string logPath)
         {
             _steps = steps;
             _actions = actions;
+            _output = new OutputLogger(logPath);
+            _managerOutput = new OutputLogger(_output, "Manager");
         }
 
         public void Start()
         {
             try
             {
-                Console.WriteLine("Manager | Process Started");
+                _managerOutput.WriteLine("Process Started");
                 while (true)
                 {
                     RunSteps();
@@ -35,14 +38,21 @@ namespace StePP.Runner
                     if (_runningTasks.Count == 0) break;
                 }
 
-                Console.WriteLine("Manager | All Complete");
+                _managerOutput.WriteLine("All Complete");
             }
             catch (StepFailedException)
             {
                 KillAllRunningSteps();
                 WaitAllTasks();
-                Console.WriteLine("Manager | Process Failed");
+                _managerOutput.WriteLine("Process Failed");
             }
+            Cleanup();
+        }
+
+        private void Cleanup()
+        {
+            _output.Close();
+            _managerOutput.Close();
         }
 
         private void KillAllRunningSteps()
@@ -101,7 +111,7 @@ namespace StePP.Runner
 
         private void RunStep(string stepName, Step step)
         {
-            var runner = new StepRunner(stepName, step, _actions);
+            var runner = new StepRunner(stepName, step, _actions, _managerOutput, _output);
             _stepRunners.Add(stepName, runner);
             _runningTasks.Add(stepName, runner.Run());
         }
@@ -124,7 +134,6 @@ namespace StePP.Runner
         {
             if (_runningTasks.ContainsKey(name)) return false;
             if (_finishSteps.Contains(name)) return false;
-            if (step.Prerequisites == null) return true;
 
             foreach (var prereqStep in step.Prerequisites)
             {

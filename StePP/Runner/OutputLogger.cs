@@ -6,13 +6,42 @@ namespace StePP.Runner
 {
     public class OutputLogger : Stream
     {
-        private readonly Stream _baseStream;
-        private readonly byte[] _prefix;
+        private Stream _baseStream;
+        private byte[] _prefix;
+        private bool _doPrefix;
+
+        public OutputLogger(Stream stream, string prefix)
+        {
+            _baseStream = stream;
+            SetupPrefix(prefix);
+        }
+
+        public OutputLogger(string path)
+        {
+            SetupBaseStream(path);
+            _prefix = new byte[0];
+        }
 
         public OutputLogger(string path, string prefix)
         {
-            _prefix = Encoding.UTF8.GetBytes(prefix);
+            SetupBaseStream(path);
+            SetupPrefix(prefix);
+        }
 
+        public void WriteLine(string line)
+        {
+            var bytes = Encoding.UTF8.GetBytes(line + "\n");
+            Write(bytes, 0, bytes.Length);
+        }
+
+        private void SetupPrefix(string prefix)
+        {
+            _prefix = Encoding.UTF8.GetBytes(prefix + " | ");
+            _doPrefix = true;
+        }
+
+        private void SetupBaseStream(string path)
+        {
             _baseStream = path == "-" ? Console.OpenStandardOutput() : File.OpenWrite(path);
         }
 
@@ -38,10 +67,26 @@ namespace StePP.Runner
 
         public override void Write(byte[] buffer, int offset, int count)
         {
-            var prefixedBuffer = new byte[_prefix.Length + count];
-            Buffer.BlockCopy(_prefix, 0, prefixedBuffer, 0, _prefix.Length);
-            Buffer.BlockCopy(buffer, offset, prefixedBuffer, _prefix.Length, count);
-            _baseStream.Write(prefixedBuffer, 0, prefixedBuffer.Length);
+            if (!_doPrefix)
+            {
+                _baseStream.Write(buffer, offset, count);
+                return;
+            }
+            var dateBytes = GetDateStampBytes();
+            var prefixBytes = _prefix;
+
+            var bytes = new byte[dateBytes.Length + prefixBytes.Length + count];
+
+            Buffer.BlockCopy(dateBytes,     0,      bytes, 0,                                     dateBytes.Length);
+            Buffer.BlockCopy(prefixBytes,   0,      bytes, dateBytes.Length,                      prefixBytes.Length);
+            Buffer.BlockCopy(buffer,        offset, bytes, dateBytes.Length + prefixBytes.Length, count);
+
+            _baseStream.Write(bytes, 0, bytes.Length);
+        }
+
+        private byte[] GetDateStampBytes()
+        {
+            return Encoding.UTF8.GetBytes(DateTime.Now.ToString("g") + " | ");
         }
 
         public override bool CanRead => _baseStream.CanRead;
@@ -51,6 +96,12 @@ namespace StePP.Runner
         public override bool CanWrite => _baseStream.CanWrite;
 
         public override long Length => _baseStream.Length;
+
+        public override void Close()
+        {
+            _baseStream.Close();
+            base.Close();
+        }
 
         public override long Position
         {

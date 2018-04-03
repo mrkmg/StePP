@@ -13,10 +13,10 @@ namespace StePP.Runner
     public class ActionRunner
     {
         private readonly Action _action;
-        private readonly Stream _outStream;
+        private readonly OutputLogger _outStream;
         private Process _currentProcess;
 
-        public ActionRunner(Action action, Stream outStream)
+        public ActionRunner(Action action, OutputLogger outStream)
         {
             _action = action;
             _outStream = outStream;
@@ -72,7 +72,8 @@ namespace StePP.Runner
 
         public void Kill()
         {
-            _currentProcess?.Kill();
+            if (_action.CanBeKilled)
+                _currentProcess?.Kill();
         }
 
         private void WriteOutput(object sender, DataReceivedEventArgs args)
@@ -83,14 +84,12 @@ namespace StePP.Runner
 
             foreach (var line in lines)
             {
-                var bytes = Encoding.UTF8.GetBytes(line + "\n");
-                _outStream.Write(bytes, 0, bytes.Length);
+                _outStream.WriteLine(line);
             }
         }
 
         private static string EncodeArguments(IReadOnlyCollection<string> arguments)
         {
-            if (arguments == null) return "";
             return arguments
                 .Select(EncodeArgument)
                 .ToArray()

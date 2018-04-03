@@ -76,7 +76,6 @@ namespace StePP.Config
             foreach (var stepEntry in config.Steps)
             {
                 var step = stepEntry.Value;
-                if (step.Prerequisites == null) continue;
                 foreach (var prerequisiteName in step.Prerequisites)
                 {
                     if (!config.Steps.ContainsKey(prerequisiteName) && !missingSteps.Contains(prerequisiteName)) missingSteps.Add(prerequisiteName);
@@ -98,8 +97,6 @@ namespace StePP.Config
                 var stepName = stepEntry.Key;
                 var step = stepEntry.Value;
 
-                if (step.Prerequisites == null) continue;
-
                 var currentToCheck = new List<string>(step.Prerequisites);
                 var currentChecked = new List<string>();
 
@@ -117,7 +114,6 @@ namespace StePP.Config
                     }
                     currentChecked.Add(name);
 
-                    if (config.Steps[name].Prerequisites == null) continue;
                     currentToCheck.AddRange(config.Steps[name].Prerequisites);
                 }
             }

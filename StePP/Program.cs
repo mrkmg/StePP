@@ -26,7 +26,7 @@ namespace StePP
                 var config = new Reader(cli.ConfigFile).ParseConfig();
                 ChangeCurrentDirectory(cli.ConfigFile);
                 Console.WriteLine(config.Name + " v" + config.Version);
-                var manager = new Manager(config.Steps, config.Actions);
+                var manager = new Manager(config.Steps, config.Actions, config.LogPath);
                 manager.Start();
             }
             catch (ConfigParseException)
@@ -38,17 +38,17 @@ namespace StePP
                 Console.WriteLine("Error in " + cli.ConfigFile);
                 Console.WriteLine(e.Message);
             }
-            catch (Exception)
-            {
-                Console.WriteLine("There was an error");
-            }
+//            catch (Exception)
+//            {
+//                Console.WriteLine("There was an error");
+//            }
             Directory.SetCurrentDirectory(originalWorkingDirectory);
             Console.ReadKey();
         }
 
         private static void ChangeCurrentDirectory(string configFilePath)
         {
-            Directory.SetCurrentDirectory(Path.GetDirectoryName(configFilePath));
+            Directory.SetCurrentDirectory(Path.GetDirectoryName(Path.GetFullPath(configFilePath)));
         }
     }
 }
