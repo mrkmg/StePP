@@ -2,6 +2,7 @@
 // ReSharper disable CollectionNeverUpdated.Global
 // ReSharper disable ClassNeverInstantiated.Global
 // ReSharper disable AutoPropertyCanBeMadeGetOnly.Global
+
 using System.Collections.Generic;
 
 namespace StePP.Config
