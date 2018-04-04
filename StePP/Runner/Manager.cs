@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using CSharpx;
 using StePP.Config;
 using Action = StePP.Config.Action;
 
@@ -9,13 +10,13 @@ namespace StePP.Runner
 {
     public class Manager
     {
-        private readonly OutputLogger _output;
-        private readonly OutputLogger _managerOutput;
-        private readonly Dictionary<string, Step> _steps;
         private readonly Dictionary<string, Action> _actions;
         private readonly List<string> _finishSteps = new List<string>();
-        private readonly Dictionary<string, StepRunner> _stepRunners = new Dictionary<string, StepRunner>();
+        private readonly OutputLogger _managerOutput;
+        private readonly OutputLogger _output;
         private readonly Dictionary<string, Task<bool>> _runningTasks = new Dictionary<string, Task<bool>>();
+        private readonly Dictionary<string, StepRunner> _stepRunners = new Dictionary<string, StepRunner>();
+        private readonly Dictionary<string, Step> _steps;
 
         public Manager(Dictionary<string, Step> steps, Dictionary<string, Action> actions, string logPath)
         {
@@ -33,9 +34,9 @@ namespace StePP.Runner
                 while (true)
                 {
                     RunSteps();
-                    ParseSteps();
-                    WaitAnyTasks();
                     if (_runningTasks.Count == 0) break;
+                    CheckSteps();
+                    WaitAnyTasks();
                 }
 
                 _managerOutput.WriteLine("All Complete");
@@ -46,6 +47,7 @@ namespace StePP.Runner
                 WaitAllTasks();
                 _managerOutput.WriteLine("Process Failed");
             }
+
             Cleanup();
         }
 
@@ -55,38 +57,23 @@ namespace StePP.Runner
             _managerOutput.Close();
         }
 
-        private void KillAllRunningSteps()
-        {
-            foreach (var stepRunnerEntry in _stepRunners)
-            {
-                stepRunnerEntry.Value.Kill();
-            }
-        }
+        private void KillAllRunningSteps() => _stepRunners.ForEach(e => e.Value.Kill());
 
-        private void WaitAllTasks()
-        {
-            var tasks = _runningTasks.Values.ToArray();
-            // ReSharper disable once CoVariantArrayConversion
-            Task.WaitAll(tasks);
-        }
+        private void WaitAllTasks() => Task.WaitAll(_runningTasks.Values.ToArray<Task>());
 
-        private void WaitAnyTasks()
-        {
-            var tasks = _runningTasks.Values.ToArray();
-            // ReSharper disable once CoVariantArrayConversion
-            Task.WaitAny(tasks);
-        }
+        private void WaitAnyTasks() => Task.WaitAny(_runningTasks.Values.ToArray<Task>());
 
-        private void ParseSteps()
+        private void CheckSteps()
         {
             var finished = new List<string>();
             foreach (var taskEntry in _runningTasks)
             {
                 var stepName = taskEntry.Key;
                 var task = taskEntry.Value;
+                var step = _steps[stepName];
 
                 if (!task.IsCompleted) continue;
-                if (!task.Result) throw new StepFailedException();
+                if (!step.IgnoreFailure && !task.Result) throw new StepFailedException();
                 finished.Add(stepName);
             }
 
@@ -136,9 +123,8 @@ namespace StePP.Runner
             if (_finishSteps.Contains(name)) return false;
 
             foreach (var prereqStep in step.Prerequisites)
-            {
-                if (!_finishSteps.Contains(prereqStep)) return false;
-            }
+                if (!_finishSteps.Contains(prereqStep))
+                    return false;
 
             return true;
         }

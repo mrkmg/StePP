@@ -2,6 +2,8 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StePP", "StePP\StePP.csproj", "{431D61FF-CF20-4968-BBE3-F7A536E66DF8}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SteppTest", "SteppTest\SteppTest.csproj", "{4C92CA6C-EC2F-48A0-888F-BE5EB7D7844F}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -12,5 +14,9 @@ Global
 		{431D61FF-CF20-4968-BBE3-F7A536E66DF8}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{431D61FF-CF20-4968-BBE3-F7A536E66DF8}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{431D61FF-CF20-4968-BBE3-F7A536E66DF8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4C92CA6C-EC2F-48A0-888F-BE5EB7D7844F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4C92CA6C-EC2F-48A0-888F-BE5EB7D7844F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4C92CA6C-EC2F-48A0-888F-BE5EB7D7844F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4C92CA6C-EC2F-48A0-888F-BE5EB7D7844F}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

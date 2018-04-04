@@ -10,89 +10,78 @@ namespace StePP.Config
     {
         private readonly string _configPath;
 
-        public Reader(string configPath)
-        {
-            _configPath = configPath;
-        }
+        public Reader(string configPath) => _configPath = configPath;
 
-        public Config ParseConfig()
+        public Root ParseConfig()
         {
             var fileData = File.ReadAllText(_configPath);
             var deserializer = new DeserializerBuilder().WithNamingConvention(new CamelCaseNamingConvention()).Build();
-            var config = deserializer.Deserialize<Config>(fileData);
+            var config = deserializer.Deserialize<Root>(fileData);
 
-            var check1 = CheckMissingExecutables(config);
-            var check2 = CheckMissingActions(config);
-            var check3 = CheckMissingSteps(config);
-            var check4 = CheckForCircularPrerequisites(config);
+            var isMissingExecutables = CheckMissingExecutables(config);
+            var isMissingActions = CheckMissingActions(config);
+            var isMissingSteps = CheckMissingSteps(config);
+            var hasCircularPrerequisites = CheckForCircularPrerequisites(config);
 
-            if (check1 || check2 || check3 || check4) throw new ConfigParseException();
+            if (isMissingExecutables || isMissingActions || isMissingSteps || hasCircularPrerequisites) throw new ConfigParseException();
 
             return config;
         }
 
-        private static bool CheckMissingExecutables(Config config)
+        private static bool CheckMissingExecutables(Root rootConfig)
         {
             var missingExecutables = new List<string>();
-            foreach (var actionEntry in config.Actions)
+            foreach (var actionEntry in rootConfig.Actions)
             {
                 var actionName = actionEntry.Key;
                 var action = actionEntry.Value;
 
-                if (action.Executable == null)
-                {
-                    missingExecutables.Add(actionName);
-                }
+                if (action.Executable == null) missingExecutables.Add(actionName);
             }
 
             if (missingExecutables.Count <= 0) return false;
 
             Console.WriteLine("The following actions are missing an executable: " + string.Join(", ", missingExecutables));
             return true;
-
         }
 
-        private static bool CheckMissingActions(Config config)
+        private static bool CheckMissingActions(Root rootConfig)
         {
             var missingActions = new List<string>();
-            foreach (var stepEntry in config.Steps)
+            foreach (var stepEntry in rootConfig.Steps)
             {
                 var step = stepEntry.Value;
                 foreach (var actionName in step.Actions)
-                {
-                    if (!config.Actions.ContainsKey(actionName) && !missingActions.Contains(actionName)) missingActions.Add(actionName);
-                }
+                    if (!rootConfig.Actions.ContainsKey(actionName) && !missingActions.Contains(actionName))
+                        missingActions.Add(actionName);
             }
 
             if (missingActions.Count <= 0) return false;
             Console.WriteLine("The following actions are missing but referenced in a step: " + string.Join(", ", missingActions));
             return true;
-
         }
 
-        private static bool CheckMissingSteps(Config config)
+        private static bool CheckMissingSteps(Root rootConfig)
         {
             var missingSteps = new List<string>();
-            foreach (var stepEntry in config.Steps)
+            foreach (var stepEntry in rootConfig.Steps)
             {
                 var step = stepEntry.Value;
                 foreach (var prerequisiteName in step.Prerequisites)
-                {
-                    if (!config.Steps.ContainsKey(prerequisiteName) && !missingSteps.Contains(prerequisiteName)) missingSteps.Add(prerequisiteName);
-                }
+                    if (!rootConfig.Steps.ContainsKey(prerequisiteName) && !missingSteps.Contains(prerequisiteName))
+                        missingSteps.Add(prerequisiteName);
             }
 
             if (missingSteps.Count <= 0) return false;
             Console.WriteLine("The following steps are missing but referenced in a prerequisites: " + string.Join(", ", missingSteps));
             return true;
-
         }
 
-        private static bool CheckForCircularPrerequisites(Config config)
+        private static bool CheckForCircularPrerequisites(Root rootConfig)
         {
             var circularSteps = new List<string>();
 
-            foreach (var stepEntry in config.Steps)
+            foreach (var stepEntry in rootConfig.Steps)
             {
                 var stepName = stepEntry.Key;
                 var step = stepEntry.Value;
@@ -112,9 +101,10 @@ namespace StePP.Config
                         circularSteps.Add(stepName);
                         break;
                     }
+
                     currentChecked.Add(name);
 
-                    currentToCheck.AddRange(config.Steps[name].Prerequisites);
+                    currentToCheck.AddRange(rootConfig.Steps[name].Prerequisites);
                 }
             }
 
@@ -124,5 +114,7 @@ namespace StePP.Config
         }
     }
 
-    public class ConfigParseException : Exception {}
+    public class ConfigParseException : Exception
+    {
+    }
 }

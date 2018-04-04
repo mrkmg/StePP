@@ -1,8 +1,7 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
 using System.Linq;
-using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using CSharpx;
@@ -14,18 +13,43 @@ namespace StePP.Runner
     {
         private readonly Action _action;
         private readonly OutputLogger _outStream;
-        private Process _currentProcess;
+        private Process _process;
+        private TaskCompletionSource<bool> _task;
 
         public ActionRunner(Action action, OutputLogger outStream)
         {
             _action = action;
             _outStream = outStream;
+            CreateTask();
+            CreateProcess();
         }
 
         public async Task<bool> Run()
         {
-            var taskCompletion = new TaskCompletionSource<bool>();
-            _currentProcess = new Process
+            if (!_process.Start())
+            {
+                _task.SetResult(false);
+                _process.Dispose();
+            }
+            else
+            {
+                _process.BeginErrorReadLine();
+                _process.BeginOutputReadLine();
+            }
+
+            return await _task.Task;
+        }
+
+        public void Kill()
+        {
+            if (_action.CanBeKilled) _process?.Kill();
+        }
+
+        private void CreateTask() => _task = new TaskCompletionSource<bool>();
+
+        private void CreateProcess()
+        {
+            _process = new Process
             {
                 StartInfo =
                 {
@@ -39,41 +63,22 @@ namespace StePP.Runner
                 EnableRaisingEvents = true
             };
 
-
             if (_action.Environment != null)
                 foreach (var envEntry in _action.Environment)
-                {
-                    _currentProcess.StartInfo.EnvironmentVariables.Add(envEntry.Key, envEntry.Value);
-                }
+                    _process.StartInfo.EnvironmentVariables.Add(envEntry.Key, envEntry.Value);
 
-            _currentProcess.OutputDataReceived += WriteOutput;
-            _currentProcess.ErrorDataReceived += WriteOutput;
-
-            _currentProcess.Exited += (sender, args) =>
-            {
-                var process = (Process) sender;
-                taskCompletion.SetResult(process.ExitCode == 0);
-                process.CancelOutputRead();
-                process.CancelErrorRead();
-                process.Dispose();
-            };
-
-            if (!_currentProcess.Start())
-            {
-                taskCompletion.SetResult(false);
-                _currentProcess.Dispose();
-            }
-
-            _currentProcess.BeginErrorReadLine();
-            _currentProcess.BeginOutputReadLine();
-
-            return await taskCompletion.Task;
+            _process.OutputDataReceived += WriteOutput;
+            _process.ErrorDataReceived += WriteOutput;
+            _process.Exited += TaskExited;
         }
 
-        public void Kill()
+        private void TaskExited(object sender, EventArgs args)
         {
-            if (_action.CanBeKilled)
-                _currentProcess?.Kill();
+            var process = (Process) sender;
+            _task.SetResult(process.ExitCode == 0);
+            process.CancelOutputRead();
+            process.CancelErrorRead();
+            process.Dispose();
         }
 
         private void WriteOutput(object sender, DataReceivedEventArgs args)
@@ -82,19 +87,13 @@ namespace StePP.Runner
 
             var lines = args.Data.Split("\n");
 
-            foreach (var line in lines)
-            {
-                _outStream.WriteLine(line);
-            }
+            foreach (var line in lines) _outStream.WriteLine(line);
         }
 
-        private static string EncodeArguments(IReadOnlyCollection<string> arguments)
-        {
-            return arguments
-                .Select(EncodeArgument)
-                .ToArray()
-                .ToDelimitedString(" ");
-        }
+        private static string EncodeArguments(IEnumerable<string> arguments) => arguments
+            .Select(EncodeArgument)
+            .ToArray()
+            .ToDelimitedString(" ");
 
         private static string EncodeArgument(string original)
         {

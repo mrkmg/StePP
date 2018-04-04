@@ -1,20 +1,19 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Threading.Tasks;
 using StePP.Config;
-using Action = StePP.Config.Action;
 
 namespace StePP.Runner
 {
     public class StepRunner
     {
-        private readonly OutputLogger _output;
-        private readonly OutputLogger _managerOutput;
-        private readonly string _stepName;
-        private readonly Step _step;
         private readonly Dictionary<string, Action> _actions;
-        private bool _killed;
+        private readonly OutputLogger _managerOutput;
+        private readonly OutputLogger _output;
+        private readonly Step _step;
+        private readonly string _stepName;
+        private OutputLogger _currentActionOutput;
         private ActionRunner _currentActionRunner;
+        private bool _killed;
 
         public StepRunner(string stepName, Step step, Dictionary<string, Action> actions, OutputLogger managerOutput, OutputLogger output)
         {
@@ -27,64 +26,87 @@ namespace StePP.Runner
 
         public async Task<bool> Run()
         {
-            _managerOutput.WriteLine("Starting Step: " + _stepName);
+            _managerOutput.WriteLine("Starting " + _stepName);
 
             var result = await RunActions();
             Cleanup();
             if (!result)
             {
-                _managerOutput.WriteLine("Failed Step: " + _stepName);
+                _managerOutput.WriteLine("Failed " + _stepName);
                 return false;
             }
 
-            _managerOutput.WriteLine("Finished Step: " + _stepName);
+            _managerOutput.WriteLine("Finished " + _stepName);
             return true;
+        }
+
+        public void Kill()
+        {
+            if (!_step.CanBeKilled) return;
+
+            _killed = true;
+            _currentActionRunner?.Kill();
         }
 
         private async Task<bool> RunActions()
         {
             foreach (var actionName in _step.Actions)
             {
-                _managerOutput.WriteLine("Starting Action: "  + _stepName + " - " + actionName);
+                var stepActionName = GetStepActionString(actionName);
 
-                var result = await RunAction(actionName);
+                _managerOutput.WriteLine("Starting " + stepActionName);
+
+                SetupNextAction(actionName);
+                var result = await RunCurrentAction();
+                CleanupAction();
+
                 if (!result)
                 {
-                    _managerOutput.WriteLine("Failed Action: "  + _stepName + " - " + actionName);
-
-                    return false;
+                    _managerOutput.WriteLine("Failed " + stepActionName);
+                    if (!_actions[actionName].IgnoreFailure) return false;
                 }
-
-                _managerOutput.WriteLine("Finished Action: "  + _stepName + " - " + actionName);
+                else
+                {
+                    _managerOutput.WriteLine("Finished " + stepActionName);
+                }
             }
 
             return true;
         }
 
-        private async Task<bool> RunAction(string actionName)
+        private void SetupNextAction(string actionName)
         {
-            if (_killed) return false;
-            var outputStream = _step.LogPath == "-" ?
-                new OutputLogger(_output, _stepName + " (" + actionName + ")") :
-                new OutputLogger(_step.LogPath, _stepName + " (" + actionName + ")");
+            if (_killed) return;
 
-            _currentActionRunner = new ActionRunner(_actions[actionName], outputStream);
-            var result = await _currentActionRunner.Run();
-
-            if (_step.LogPath != "-") outputStream.Close();
-
-            return result;
+            SetupActionOutput(actionName);
+            _currentActionRunner = new ActionRunner(_actions[actionName], _currentActionOutput);
         }
 
-        public void Kill()
-        {
-            _killed = true;
-            _currentActionRunner?.Kill();
-        }
+        private async Task<bool> RunCurrentAction() => await _currentActionRunner.Run();
 
-        private void Cleanup()
+        private void CleanupAction()
         {
             _currentActionRunner = null;
+            CleanupActionOutput();
         }
+
+        private void Cleanup() => _currentActionRunner = null;
+
+        private void SetupActionOutput(string actionName)
+        {
+            var stepActionName = GetStepActionString(actionName);
+            _currentActionOutput = _step.LogPath == "-"
+                ? new OutputLogger(_output, stepActionName)
+                : new OutputLogger(_step.LogPath, stepActionName);
+        }
+
+        private void CleanupActionOutput()
+        {
+            if (_step.LogPath != "-") _currentActionOutput.Close();
+
+            _currentActionOutput = null;
+        }
+
+        private string GetStepActionString(string actionName) => _stepName + "(" + actionName + ")";
     }
 }

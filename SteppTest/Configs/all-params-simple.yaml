@@ -1,0 +1,24 @@
+name: All Params Simple
+version: 1
+
+actions:
+  test-name:
+    executable: executable-name
+    arguments:
+      - argument
+    canBeKilled: false
+    ignoreFailure: true
+
+steps:
+  test-step-1:
+    actions:
+      - test-name
+  test-step-2:
+    actions:
+      - test-name
+    prerequisites:
+      - test-step-1
+    canBeKilled: false
+    ignoreFailure: true
+
+

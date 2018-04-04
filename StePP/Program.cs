@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using CommandLine;
 using StePP.Config;
@@ -11,23 +12,18 @@ namespace StePP
     // ReSharper disable once ClassNeverInstantiated.Global
     internal class Program
     {
+        private static string _originalWorkingDirectory;
+        private static Cli _cli;
+        private static Root _rootConfig;
+
         private static void Main(string[] args)
         {
-            Parser.Default.ParseArguments<Cli>(args)
-                .WithParsed(Run);
-        }
-
-        private static void Run(Cli cli)
-        {
-            var originalWorkingDirectory = Directory.GetCurrentDirectory();
             try
             {
-                Console.WriteLine("Reading config from: " + cli.ConfigFile);
-                var config = new Reader(cli.ConfigFile).ParseConfig();
-                ChangeCurrentDirectory(cli.ConfigFile);
-                Console.WriteLine(config.Name + " v" + config.Version);
-                var manager = new Manager(config.Steps, config.Actions, config.LogPath);
-                manager.Start();
+                ParseCli(args);
+                ReadConfig();
+                MoveToWorkingDirectory();
+                StartManager();
             }
             catch (ConfigParseException)
             {
@@ -35,20 +31,38 @@ namespace StePP
             }
             catch (YamlException e)
             {
-                Console.WriteLine("Error in " + cli.ConfigFile);
+                Console.WriteLine("Error in " + _cli.ConfigFile);
                 Console.WriteLine(e.Message);
+                Console.WriteLine(e.InnerException.Message);
             }
-//            catch (Exception)
-//            {
-//                Console.WriteLine("There was an error");
-//            }
-            Directory.SetCurrentDirectory(originalWorkingDirectory);
-            Console.ReadKey();
+            finally
+            {
+                MoveToOriginalWorkingDirectory();
+                Console.ReadKey(); // For testing only TODO
+            }
         }
 
-        private static void ChangeCurrentDirectory(string configFilePath)
+        private static void StartManager()
         {
-            Directory.SetCurrentDirectory(Path.GetDirectoryName(Path.GetFullPath(configFilePath)));
+            Console.WriteLine(_rootConfig.Name + " v" + _rootConfig.Version);
+            var manager = new Manager(_rootConfig.Steps, _rootConfig.Actions, _rootConfig.LogPath);
+            manager.Start();
+        }
+
+        private static void ReadConfig() => _rootConfig = new Reader(_cli.ConfigFile).ParseConfig();
+
+        private static void ParseCli(IEnumerable<string> args) => Parser.Default.ParseArguments<Cli>(args).WithParsed(cli => _cli = cli);
+
+        private static void MoveToWorkingDirectory()
+        {
+            _originalWorkingDirectory = Directory.GetCurrentDirectory();
+            Directory.SetCurrentDirectory(Path.GetDirectoryName(Path.GetFullPath(_cli.ConfigFile)));
+        }
+
+        private static void MoveToOriginalWorkingDirectory()
+        {
+            if (_originalWorkingDirectory == null) return;
+            Directory.SetCurrentDirectory(_originalWorkingDirectory);
         }
     }
 }

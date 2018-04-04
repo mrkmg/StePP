@@ -2,15 +2,50 @@ name: Sample Test
 version: 1
 
 actions:
-  action1:
+  echo-sleep-1:
     executable: ./echo-sleep
     arguments:
-      - |
-        Action
-        Action
+      - Sleeping for 1
       - 1
+
+  echo-sleep-5:
+    executable: ./echo-sleep
+    arguments:
+      - Sleeping for 5
+      - 5
+
+  echo-sleep-10:
+    executable: ./echo-sleep
+    arguments:
+      - Sleeping for 10
+      - 10
+
+  should-fail:
+    executable: ./echo-sleep
+      - Sleep for Fail
+      - Fail
 
 steps:
   one:
     actions:
-      - action1
+      - echo-sleep-5
+  two:
+    actions:
+      - echo-sleep-10
+
+  three:
+    actions:
+      - echo-sleep-1
+      - echo-sleep-10
+      - should-fail
+    prerequisites:
+      - one
+    ignoreFailure: true
+
+  four:
+    actions:
+      - echo-sleep-10
+    prerequisites:
+      - two
+      - three
+

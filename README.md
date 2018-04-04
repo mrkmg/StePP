@@ -39,6 +39,8 @@ actions:
     executable: sleep
     arguments:
       - 10
+    canBeKilled: false
+    ignoreFailure: false
       
   another-script: 
     executable: /absolute/path/to/script
@@ -49,6 +51,7 @@ steps:
       - some-script
       - sleep-10
     logPath: ./logs/step-1
+    canBeKilled: false
     
   step-2:
     actions:
@@ -70,18 +73,23 @@ Root options:
 - `version` - Config file version. For now always set to 1.
 - `actions` - A named list of all actions. See Actions. 
 - `steps`   - A named list of all steps. See Steps. 
+- `logPath` - A path to write the output. If not set, or set to "-", then it outputs to STDOUT.
 
 Action Options:
 
 - `executable`  - The path to the executable.
 - `arguments`   - An array of all arguments to pass to the executable.
 - `environment` - A Key/Value set of Environment Variables
+- `canBeKilled` - Whether or not this action can be killed. Default true.
+- `ignoreFailure` - Whether or not to ignore failure of this action. Default false.
 
 Step Options:
 
 - `actions`       - A list of actions to run.
 - `prerequisites` - A list of steps which must complete before this step runs.
-- `logPath`       - A path to write the output of the step. If not set, or set to "-", then it outputs to STDOUT.
+- `logPath`       - A path to write the output of the step. If not set, or set to "-", then it outputs to Root logPath.
+- `canBeKilled`   - true/false whether or not this action can be killed.
+- `ignoreFailure` - Whether or not to ignore failure of this step. Default false.
 
 LICENSE
 -------
